@@ -1,0 +1,11 @@
+name: Shearer
+main: org.pale.shearer.Plugin
+version: 0.0.1
+api-version: 1.14
+depend: [Citizens]
+commands:
+  chatcitizen:
+    description: Shearer configuration command
+    aliases: [shearer]
+    usage: /shearer
+    permission: shearer
