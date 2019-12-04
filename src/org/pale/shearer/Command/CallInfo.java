@@ -2,7 +2,7 @@ package org.pale.shearer.Command;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.pale.shearer.Trait;
+import org.pale.shearer.ShearerTrait;
 import org.pale.shearer.Plugin;
 
 public class CallInfo {
@@ -10,7 +10,7 @@ public class CallInfo {
 	private final Player p;
 	private final String[] args;
 	private String cmd;
-	private Trait trait;
+	private ShearerTrait trait;
 	
 	public CallInfo (String cmd,CommandSender p, String[] args){
 		this.sender = p;
@@ -36,7 +36,7 @@ public class CallInfo {
 		Plugin.sendCmdMessage(sender,s);
 	}
 
-	public Trait getCitizen() {
+	public ShearerTrait getCitizen() {
 		return trait;
 	}
 
