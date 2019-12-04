@@ -1,11 +1,7 @@
 package org.pale.shearer;
 
 import java.util.*;
-import java.util.Map.Entry;
 
-import net.citizensnpcs.api.ai.PathStrategy;
-import net.citizensnpcs.api.persistence.Persist;
-import net.citizensnpcs.api.persistence.PersistenceLoader;
 import net.citizensnpcs.api.trait.TraitName;
 import net.citizensnpcs.api.util.DataKey;
 
@@ -17,12 +13,9 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Sheep;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.material.Wool;
 import org.bukkit.plugin.java.JavaPlugin;
 
 
@@ -43,15 +36,19 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 		STOPPED,
 		MOVING_TO_SHEEP,
 		MOVING_TO_CONTAINER,
+		CONTAINERS_FULL,
 		LOOKING_FOR_SHEEP;
 	}
 
 	static final int MIN_SHEEP_SCAN = 3;
 	static final int MAX_SHEEP_SCAN = 20;
 	static final int CONTAINER_DIST = 20;
-	static final int IDLE_TIME = 100;
+	static final int MIN_IDLE_TIME = 500;
+	static final int MAX_IDLE_TIME = 2000;
 	static final int NAV_TIMEOUT=1000;
+	static final int CONTAINERS_FULL_PAUSE = 4000; // containers all full, pause this long then look agian
 	static final int WOOL_MAX = 128; // when to move wool to container
+	static final double  WANDER_CHANCE = 0.1;
 
 	private int tickint=0;
 	public long timeSpawned=0;
@@ -62,6 +59,9 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 		Plugin.log("State := "+t.toString());
 		state = t;
 		timeStateStarted = timeSpawned;
+		if(state == State.IDLE){
+			idleTime = rand.nextInt(MAX_IDLE_TIME+MIN_IDLE_TIME)+MIN_IDLE_TIME;
+		}
 	}
 	private long stateTime(){
 		return timeSpawned - timeStateStarted;
@@ -143,12 +143,23 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 	}
 
 	int scanDist = MIN_SHEEP_SCAN;
+	int idleTime;
+
 	private void update(){
 		Plugin.log("Current state "+state.toString()+ " for "+stateTime());
 		switch(state){
-			case STOPPED:break;
+			case STOPPED:
+				// every now and then wander around
+				if(rand.nextDouble() < WANDER_CHANCE){
+					wander();
+				}
+				break;
 			case IDLE:
-				if(stateTime()>IDLE_TIME)
+				// every now and then wander around
+				if(rand.nextDouble() < WANDER_CHANCE){
+  					wander();
+				}
+				if(stateTime()>idleTime) // idleTime gets set by hacky code in gotoState
 					gotoState(State.LOOKING_FOR_SHEEP);
 				break;
 			case LOOKING_FOR_SHEEP:
@@ -171,8 +182,27 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 					gotoState(State.IDLE); // give up, took too long.
 				checkNearSheep();
 				break;
+			case CONTAINERS_FULL:
+				if(stateTime()>CONTAINERS_FULL_PAUSE)
+					findContainerToTarget();
 			default:break;
 		}
+	}
+
+	private void wander() {
+		// just go to a random location. We do this by just finding a point within 10 and going there.
+		Location l = npc.getStoredLocation();
+		World w = l.getWorld();
+		int x = l.getBlockX();
+		int z = l.getBlockZ();
+
+		int bx = x+rand.nextInt(21)-10;
+		int bz = z+rand.nextInt(21)-10;
+		Block b = w.getHighestBlockAt(bx,bz);
+
+		npc.getNavigator().setTarget(b.getLocation().add(0,1,0));
+		Plugin.log("wander target set");
+
 	}
 
 	private Sheep sheepTarget = null;
@@ -273,7 +303,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 	}
 
 	private Block containerTarget;
-	private Block findNearestBlock(Material m){
+	private Block findNearestContainer(Material m){
 		Location l = npc.getStoredLocation();
 		World w = l.getWorld();
 		int x = l.getBlockX();
@@ -307,14 +337,14 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 	}
 
 	private void findContainerToTarget(){
-		containerTarget = findNearestBlock(Material.BARREL);
+		containerTarget = findNearestContainer(Material.BARREL);
 		if(containerTarget != null){
 			gotoState(State.MOVING_TO_CONTAINER);
 			npc.getNavigator().setTarget(containerTarget.getLocation());
 			Plugin.log("found container");
 		} else {
 			Plugin.log("can't find container");
-			gotoState(State.IDLE); // just keep looking for sheepies.
+			gotoState(State.CONTAINERS_FULL); // wait a while
 		}
 	}
 
