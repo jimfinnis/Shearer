@@ -51,6 +51,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 	static final int CONTAINER_DIST = 20;
 	static final int IDLE_TIME = 100;
 	static final int NAV_TIMEOUT=1000;
+	static final int WOOL_MAX = 128; // when to move wool to container
 
 	private int tickint=0;
 	public long timeSpawned=0;
@@ -195,7 +196,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 	}
 
 	static Set<Material> wools = new HashSet<>(Arrays.asList(Material.BLACK_WOOL,Material.BLUE_WOOL,
-			Material.BROWN_WOOL,Material.CYAN_WOOL,Material.GREEN_WOOL,
+			Material.BROWN_WOOL,Material.CYAN_WOOL,Material.GREEN_WOOL,Material.GRAY_WOOL,
 			Material.LIGHT_BLUE_WOOL,Material.LIGHT_GRAY_WOOL,Material.LIME_WOOL,Material.MAGENTA_WOOL,
 			Material.ORANGE_WOOL,Material.PINK_WOOL,Material.PURPLE_WOOL,Material.RED_WOOL,Material.WHITE_WOOL,
 			Material.YELLOW_WOOL));
@@ -260,7 +261,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 						}
 					}
 				}
-				if(woolcount > 3 || i.addItem(st).size()>0){
+				if(woolcount > WOOL_MAX || i.addItem(st).size()>0){
 					// no space!
 					findContainerToTarget();
 				} else
@@ -290,7 +291,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 						// check it will fit
 						Container con = (Container)(b.getState());
 						Inventory inv = con.getInventory();
-						if(inv.firstEmpty()==-1) // yeah, we'll always have one empty slot.
+						if(inv.firstEmpty()>=0) // yeah, we'll always have one empty slot.
 						{
 							int dist = dx * dx + dy * dy + dz * dz;
 							if (found == null || dist < closest) {
