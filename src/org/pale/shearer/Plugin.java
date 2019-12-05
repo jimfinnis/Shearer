@@ -123,6 +123,11 @@ public class Plugin extends JavaPlugin {
         c.msg("stopping work..");
         c.getCitizen().stop();
     }
+    @Cmd(desc = "set home location for wandering", argc = 0,cz=true)
+    public void home(CallInfo c) {
+        c.msg("home set..");
+        c.getCitizen().setHome();
+    }
 
 
     @Cmd(desc = "show help for a command or list commands", argc = -1, usage = "[<command name>]")

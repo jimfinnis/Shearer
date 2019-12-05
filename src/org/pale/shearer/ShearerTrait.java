@@ -2,6 +2,7 @@ package org.pale.shearer;
 
 import java.util.*;
 
+import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.trait.TraitName;
 import net.citizensnpcs.api.util.DataKey;
 
@@ -43,18 +44,28 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 	static final int MIN_SHEEP_SCAN = 3;
 	static final int MAX_SHEEP_SCAN = 20;
 	static final int CONTAINER_DIST = 20;
-	static final int MIN_IDLE_TIME = 500;
+	static final int MIN_IDLE_TIME = 1000;
 	static final int MAX_IDLE_TIME = 2000;
 	static final int NAV_TIMEOUT=1000;
 	static final int CONTAINERS_FULL_PAUSE = 4000; // containers all full, pause this long then look agian
 	static final int WOOL_MAX = 128; // when to move wool to container
 	static final double  WANDER_CHANCE = 0.1;
+	static final double WANDER_HOME_LIMIT_SQ = 200; // squared limit of wander distance from "home"
+	static final double WANDER_HEIGHT_DIST_LIMIT = 3; // limit of height wander distance from "home"
+
+	public static boolean isNotWalkable(Material m){
+		return m==Material.IRON_BARS || Tag.FENCES.isTagged(m);
+	}
 
 	private int tickint=0;
 	public long timeSpawned=0;
 	public long timeStateStarted = 0;
 	static Random rand = new Random();
-	State state = State.IDLE;
+
+	// best to begin stopped, lest we collect a huge amount of wool!
+	State state = State.STOPPED;
+
+
 	private void gotoState(State t){
 		Plugin.log("State := "+t.toString());
 		state = t;
@@ -70,6 +81,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 
 
 	Plugin plugin = null;
+	Location home = null;
 
 
 	// 
@@ -138,6 +150,10 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 		gotoState(State.STOPPED);
 	}
 
+	public void setHome(){
+		home = npc.getStoredLocation().clone();
+	}
+
 	private void stopNav(){
 		getNPC().getNavigator().cancelNavigation();
 	}
@@ -196,12 +212,26 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 		int x = l.getBlockX();
 		int z = l.getBlockZ();
 
-		int bx = x+rand.nextInt(21)-10;
-		int bz = z+rand.nextInt(21)-10;
-		Block b = w.getHighestBlockAt(bx,bz);
+		if(home == null)
+			setHome();
 
-		npc.getNavigator().setTarget(b.getLocation().add(0,1,0));
-		Plugin.log("wander target set");
+		for(int i=0;i<100;i++) {
+
+			int bx = x + rand.nextInt(21) - 10;
+			int bz = z + rand.nextInt(21) - 10;
+			Block b = w.getHighestBlockAt(bx, bz);
+			Location newloc = b.getLocation();
+
+			// don't use if it's not ground, or it's too far from home, or the height distance from home is too great
+			if(home.distanceSquared(newloc)>WANDER_HOME_LIMIT_SQ ||
+					Math.abs(home.getY()-newloc.getY())>WANDER_HEIGHT_DIST_LIMIT ||
+					isNotWalkable(b.getType())){
+				continue;
+			}
+			npc.getNavigator().setTarget(b.getLocation().add(0, 1, 0));
+			Plugin.log("wander target set");
+			break;
+		}
 
 	}
 
@@ -224,12 +254,6 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 		if(sheepTarget == null)
 			gotoState(State.IDLE); // should be this anyway.
 	}
-
-	static Set<Material> wools = new HashSet<>(Arrays.asList(Material.BLACK_WOOL,Material.BLUE_WOOL,
-			Material.BROWN_WOOL,Material.CYAN_WOOL,Material.GREEN_WOOL,Material.GRAY_WOOL,
-			Material.LIGHT_BLUE_WOOL,Material.LIGHT_GRAY_WOOL,Material.LIME_WOOL,Material.MAGENTA_WOOL,
-			Material.ORANGE_WOOL,Material.PINK_WOOL,Material.PURPLE_WOOL,Material.RED_WOOL,Material.WHITE_WOOL,
-			Material.YELLOW_WOOL));
 
 	static private Material getWoolMat(DyeColor c){
 		switch(c) {
@@ -286,7 +310,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 				for(ItemStack ii: i.getContents()){
 					if(ii != null) {
 						Plugin.log("  Item:" + ii.getType() + " Amount: " + ii.getAmount());
-						if(wools.contains(ii.getType())){
+						if(Tag.WOOL.isTagged(ii.getType())){
 							woolcount += ii.getAmount();
 						}
 					}
@@ -367,7 +391,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
 				List<ItemStack> rem = new ArrayList<>();
 				for(ItemStack st: inv.getContents()){
 					if(st!=null) {
-						if (wools.contains(st.getType())) {
+						if (Tag.WOOL.isTagged(st.getType())) {
 							rem.add(st);
 							con.addItem(st);
 						}
