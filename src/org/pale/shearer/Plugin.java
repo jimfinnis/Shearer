@@ -4,6 +4,7 @@ import net.citizensnpcs.api.CitizensAPI;
 
 import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Bukkit;
+import org.bukkit.DyeColor;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -129,7 +130,22 @@ public class Plugin extends JavaPlugin {
         c.getCitizen().setHome();
     }
 
-
+    @Cmd(desc = "limit colour", argc = 1,cz=true,usage="[colour|any]")
+    public void colour(CallInfo c) {
+        String col = c.getArgs()[0].toUpperCase();
+        if(col.equals("any")){
+            c.getCitizen().setPermittedColour(null);
+        } else {
+            try {
+                DyeColor d = DyeColor.valueOf(col);
+                c.getCitizen().setPermittedColour(d);
+                c.msg("Colour set");
+            } catch (IllegalArgumentException a) {
+                c.msg("No such colour");
+            }
+        }
+    }
+    
     @Cmd(desc = "show help for a command or list commands", argc = -1, usage = "[<command name>]")
     public void help(CallInfo c) {
         if (c.getArgs().length == 0) {
