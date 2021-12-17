@@ -26,9 +26,9 @@ public class Plugin extends JavaPlugin {
      * Make the plugin a weird singleton.
      */
     static Plugin instance = null;
+    static final String ROOTCMDNAME="shearer";
 
-
-    private Registry commandRegistry = new Registry();
+    private Registry commandRegistry = new Registry(ROOTCMDNAME);
 
     /**
      * Use this to get plugin instances - don't play silly buggers creating new
@@ -82,7 +82,7 @@ public class Plugin extends JavaPlugin {
     public boolean onCommand(CommandSender sender, Command command,
                              String label, String[] args) {
         String cn = command.getName();
-        if (cn.equals("shearer")) {
+        if (cn.equals(ROOTCMDNAME)) {
             commandRegistry.handleCommand(sender, args);
             return true;
         }
@@ -129,6 +129,17 @@ public class Plugin extends JavaPlugin {
         c.msg("home set..");
         c.getCitizen().setHome();
     }
+    @Cmd(desc = "set distance limit for wandering", argc = 1,cz=true)
+    public void wanderlimit(CallInfo c) {
+        try {
+            int limit = Integer.parseInt(c.getArgs()[0]);
+            c.getCitizen().setWanderLimit(limit);
+            c.msg("limit set");
+        } catch(NumberFormatException e) {
+            c.msg("Bad numeric format");
+        }            
+        c.getCitizen().setHome();
+    }
 
     @Cmd(desc = "limit colour", argc = 1,cz=true,usage="[colour|any]")
     public void colour(CallInfo c) {
@@ -145,6 +156,23 @@ public class Plugin extends JavaPlugin {
             }
         }
     }
+    
+    @Cmd(desc = "set idle time limits", argc=2,cz=true,usage="[minticks] [maxticks]")
+    public void idletime(CallInfo c) {
+        try {
+            int mintime = Integer.parseInt(c.getArgs()[0]);
+            int maxtime = Integer.parseInt(c.getArgs()[1]);
+            if(maxtime<mintime){
+                c.msg("Maxtime must be greater or equal to mintime");
+            } else {
+                c.getCitizen().setIdleTime(mintime,maxtime);
+                c.msg("Min/max time set");
+            }
+        } catch(NumberFormatException e) {
+            c.msg("Bad numeric format");
+        }            
+    }
+    
     
     @Cmd(desc = "show help for a command or list commands", argc = -1, usage = "[<command name>]")
     public void help(CallInfo c) {

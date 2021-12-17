@@ -44,14 +44,13 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     static final int MIN_SHEEP_SCAN = 3;
     static final int MAX_SHEEP_SCAN = 20;
     static final int CONTAINER_DIST = 20;
-    static final int MIN_IDLE_TIME = 1000;
-    static final int MAX_IDLE_TIME = 2000;
     static final int NAV_TIMEOUT=1000;
     static final int CONTAINERS_FULL_PAUSE = 4000; // containers all full, pause this long then look agian
     static final int WOOL_MAX = 128; // when to move wool to container
+    
     static final double  WANDER_CHANCE = 0.1;
-    static final double WANDER_HOME_LIMIT_SQ = 200; // squared limit of wander distance from "home"
     static final double WANDER_HEIGHT_DIST_LIMIT = 3; // limit of height wander distance from "home"
+    private double wanderHomeLimitSq = 200; // squared limit of wander distance from "home"
     
     public static boolean isNotWalkable(Material m){
         return m==Material.IRON_BARS || Tag.FENCES.isTagged(m);
@@ -60,21 +59,26 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     private int tickint=0;
     public long timeSpawned=0;
     public long timeStateStarted = 0;
+    
     static Random rand = new Random();
     
     // if null, any colour is allowed. If not, we only shear sheep of this colour.
     private DyeColor permittedColour = null;
     
+    // time we are idle for is between these two
+    private int minIdleTime = 1000;
+    private int maxIdleTime = 2000;
+    
+    
     // best to begin stopped, lest we collect a huge amount of wool!
     State state = State.STOPPED;
-    
     
     private void gotoState(State t){
         Plugin.log("State := "+t.toString());
         state = t;
         timeStateStarted = timeSpawned;
         if(state == State.IDLE){
-            idleTime = rand.nextInt(MAX_IDLE_TIME+MIN_IDLE_TIME)+MIN_IDLE_TIME;
+            idleTime = rand.nextInt(maxIdleTime-minIdleTime)+minIdleTime;
         }
     }
     private long stateTime(){
@@ -93,13 +97,16 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     // This is called AFTER onAttach so you can load defaults in onAttach and they will be overridden here.
     // This is called BEFORE onSpawn, npc.getBukkitEntity() will return null.
     public void load(DataKey key) {
-        //		SomeSetting = key.getBoolean("SomeSetting", false);
-        
+        wanderHomeLimitSq = key.getDouble("WanderHomeLimitSq",200);
+        minIdleTime = key.getInt("minIdleTime",1000);
+        maxIdleTime = key.getInt("maxIdleTime",2000);
     }
     
     // Save settings for this NPC (optional). These values will be persisted to the Citizens saves file
     public void save(DataKey key) {
-        //		key.setBoolean("SomeSetting",SomeSetting);
+        key.setDouble("WanderHomeLimitSq",wanderHomeLimitSq);
+        key.setInt("minIdleTime",minIdleTime);
+        key.setInt("maxIdleTime",maxIdleTime);
     }
     
     
@@ -159,6 +166,15 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     
     public void setPermittedColour(DyeColor d){
         permittedColour = d;
+    }
+    
+    public void setIdleTime(int mintime,int maxtime) {
+        minIdleTime = mintime;
+        maxIdleTime = maxtime;
+    }
+    
+    public void setWanderLimit(int limit){
+        wanderHomeLimitSq = (double)(limit*limit);
     }
     
     private void stopNav(){
@@ -230,7 +246,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
             Location newloc = b.getLocation();
             
             // don't use if it's not ground, or it's too far from home, or the height distance from home is too great
-            if(home.distanceSquared(newloc)>WANDER_HOME_LIMIT_SQ ||
+            if(home.distanceSquared(newloc)>wanderHomeLimitSq ||
                Math.abs(home.getY()-newloc.getY())>WANDER_HEIGHT_DIST_LIMIT ||
                isNotWalkable(b.getType())){
                 continue;
@@ -244,20 +260,27 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     
     private Sheep sheepTarget = null;
     private void findSheepToTarget(){
-        Plugin.log("looking for a sheep at "+scanDist);
         List<Entity> lst = npc.getEntity().getNearbyEntities(scanDist,3,scanDist);
         sheepTarget=null;
+        Plugin.log(String.format("looking for a sheep within %d, %d entities found",scanDist,lst.size()));
         for(Entity e:lst){
             if(e.getType() == EntityType.SHEEP){
                 Sheep sheep = (Sheep)e;
-                if(permittedColour != null && sheep.getColor()!=permittedColour)
+                if(permittedColour != null && sheep.getColor()!=permittedColour){
+                    Plugin.log("Sheep found, wrong colour");
                     continue;
+                }
                 if(!sheep.isSheared()){
                     // could look for nearest but this one will do.
                     sheepTarget = sheep;
                     gotoState(State.MOVING_TO_SHEEP);
                     getNPC().getNavigator().setTarget(sheep,false);
+                    Plugin.log("Moving in to shear");
+                    break;
+                } else {
+                    Plugin.log("Sheep found, already shorn");
                 }
+                
             }
         }
         if(sheepTarget == null)
