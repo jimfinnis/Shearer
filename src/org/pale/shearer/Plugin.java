@@ -113,7 +113,12 @@ public class Plugin extends JavaPlugin {
     /**
      * Commands
      */
-
+    
+    @Cmd(desc = "get information", argc = 0,cz=true)
+    public void info(CallInfo c) {
+        c.msg(c.getCitizen().getInfo());
+    }
+    
     @Cmd(desc = "start shearing", argc = 0,cz=true)
     public void start(CallInfo c) {
         c.msg("starting work..");
@@ -172,6 +177,15 @@ public class Plugin extends JavaPlugin {
             c.msg("Bad numeric format");
         }            
     }
+    
+    @Cmd(desc = "force dropoff of all wool at container", argc=0, cz=true)
+    public void drop(CallInfo c){
+        if(c.getCitizen().forceDrop())
+            c.msg("Heading for container");
+        else
+            c.msg("Can't find container");
+    }
+    
     
     
     @Cmd(desc = "show help for a command or list commands", argc = -1, usage = "[<command name>]")

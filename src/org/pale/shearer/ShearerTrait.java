@@ -41,6 +41,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
               LOOKING_FOR_SHEEP;
     }
     
+    static final int DEFAULT_WANDER_LIMIT = 15;
     static final int MIN_SHEEP_SCAN = 3;
     static final int MAX_SHEEP_SCAN = 20;
     static final int CONTAINER_DIST = 20;
@@ -50,7 +51,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     
     static final double  WANDER_CHANCE = 0.1;
     static final double WANDER_HEIGHT_DIST_LIMIT = 3; // limit of height wander distance from "home"
-    private double wanderHomeLimitSq = 200; // squared limit of wander distance from "home"
+    private double wanderHomeLimit = 14;
     
     public static boolean isNotWalkable(Material m){
         return m==Material.IRON_BARS || Tag.FENCES.isTagged(m);
@@ -97,16 +98,26 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     // This is called AFTER onAttach so you can load defaults in onAttach and they will be overridden here.
     // This is called BEFORE onSpawn, npc.getBukkitEntity() will return null.
     public void load(DataKey key) {
-        wanderHomeLimitSq = key.getDouble("WanderHomeLimitSq",200);
+        wanderHomeLimit = key.getDouble("WanderHomeLimit",DEFAULT_WANDER_LIMIT);
         minIdleTime = key.getInt("minIdleTime",1000);
         maxIdleTime = key.getInt("maxIdleTime",2000);
+        String pc = key.getString("permittedColour","any");
+        if(pc.equals("any"))
+            permittedColour = null;
+        else
+            permittedColour = DyeColor.valueOf(pc);
     }
     
     // Save settings for this NPC (optional). These values will be persisted to the Citizens saves file
     public void save(DataKey key) {
-        key.setDouble("WanderHomeLimitSq",wanderHomeLimitSq);
+        key.setDouble("WanderHomeLimit",wanderHomeLimit);
         key.setInt("minIdleTime",minIdleTime);
         key.setInt("maxIdleTime",maxIdleTime);
+        if(permittedColour==null){
+            key.setString("permittedColour","any");
+        } else {
+            key.setString("permittedColour",permittedColour.toString());
+        }
     }
     
     
@@ -174,7 +185,28 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     }
     
     public void setWanderLimit(int limit){
-        wanderHomeLimitSq = (double)(limit*limit);
+        wanderHomeLimit = limit;
+    }
+    
+    public String getInfo(){
+        StringBuilder sb = new StringBuilder("Inventory:\n");
+        if(npc.getEntity() instanceof Player){
+            PlayerInventory i = ((Player)(npc.getEntity())).getInventory();
+            for(ItemStack ii: i.getContents()){
+                if(ii != null) {
+                    sb.append("Item :");
+                    sb.append(ii.getType());
+                    sb.append("   Amount : ");
+                    sb.append(ii.getAmount());
+                    sb.append('\n');
+                }
+            }
+        }
+        sb.append(String.format("Idle time: %d-%d\nWander Limit: %d\nPermitted Colour: %s",
+                  minIdleTime,maxIdleTime,
+                  (int)wanderHomeLimit,
+                  (permittedColour==null)?"any":permittedColour.toString()));
+        return sb.toString();
     }
     
     private void stopNav(){
@@ -223,7 +255,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
             break;
         case CONTAINERS_FULL:
             if(stateTime()>CONTAINERS_FULL_PAUSE)
-                findContainerToTarget();
+                forceDrop();
         default:break;
         }
     }
@@ -246,7 +278,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
             Location newloc = b.getLocation();
             
             // don't use if it's not ground, or it's too far from home, or the height distance from home is too great
-            if(home.distanceSquared(newloc)>wanderHomeLimitSq ||
+            if(home.distanceSquared(newloc)>wanderHomeLimit*wanderHomeLimit ||
                Math.abs(home.getY()-newloc.getY())>WANDER_HEIGHT_DIST_LIMIT ||
                isNotWalkable(b.getType())){
                 continue;
@@ -349,7 +381,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
                 }
                 if(woolcount > WOOL_MAX || i.addItem(st).size()>0){
                     // no space!
-                    findContainerToTarget();
+                    forceDrop();
                 } else
                     gotoState(State.IDLE);
             } else {
@@ -392,15 +424,17 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
         return found;
     }
     
-    private void findContainerToTarget(){
+    public boolean forceDrop(){
         containerTarget = findNearestContainer(Material.BARREL);
         if(containerTarget != null){
             gotoState(State.MOVING_TO_CONTAINER);
             npc.getNavigator().setTarget(containerTarget.getLocation());
             Plugin.log("found container");
+            return true;
         } else {
             Plugin.log("can't find container");
             gotoState(State.CONTAINERS_FULL); // wait a while
+            return false;
         }
     }
     
