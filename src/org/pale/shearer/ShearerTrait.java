@@ -254,6 +254,11 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
             checkNearSheep();
             break;
         case CONTAINERS_FULL:
+            // every now and then wander around
+            if(rand.nextDouble() < WANDER_CHANCE){
+                wander();
+            }
+            // maybe we'll be near a  container
             if(stateTime()>CONTAINERS_FULL_PAUSE)
                 forceDrop();
         default:break;
