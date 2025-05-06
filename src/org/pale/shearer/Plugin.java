@@ -149,7 +149,8 @@ public class Plugin extends JavaPlugin {
     @Cmd(desc = "limit colour", argc = 1,cz=true,usage="[colour|any]")
     public void colour(CallInfo c) {
         String col = c.getArgs()[0].toUpperCase();
-        if(col.equals("any")){
+        c.msg("setting colour to "+col);
+        if(col.equals("ANY")){
             c.getCitizen().setPermittedColour(null);
         } else {
             try {
@@ -184,6 +185,13 @@ public class Plugin extends JavaPlugin {
             c.msg("Heading for container");
         else
             c.msg("Can't find container");
+    }
+    
+    @Cmd(desc = "toggle debug", argc=0, cz=true)
+    public void debug(CallInfo c){
+        ShearerTrait trait = c.getCitizen();
+        trait.toggleDebug();
+        c.msg(ChatColor.AQUA+"Debug for "+trait.getNPC().getName()+ " is "+trait.getDebug());
     }
     
     

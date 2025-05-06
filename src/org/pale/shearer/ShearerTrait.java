@@ -52,6 +52,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     static final double  WANDER_CHANCE = 0.1;
     static final double WANDER_HEIGHT_DIST_LIMIT = 3; // limit of height wander distance from "home"
     private double wanderHomeLimit = 14;
+    private boolean debug;
     
     public static boolean isNotWalkable(Material m){
         return m==Material.IRON_BARS || Tag.FENCES.isTagged(m);
@@ -75,7 +76,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     State state = State.STOPPED;
     
     private void gotoState(State t){
-        Plugin.log("State := "+t.toString());
+        log("State := "+t.toString());
         state = t;
         timeStateStarted = timeSpawned;
         if(state == State.IDLE){
@@ -90,6 +91,18 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     
     Plugin plugin = null;
     Location home = null;
+    
+    void toggleDebug(){
+        debug = !debug;
+    }
+    
+    boolean getDebug(){
+        return debug;
+    }
+    
+    void log(String s){
+        if(debug)Plugin.log(npc.getName()+": "+s);
+    }
     
     
     // 
@@ -136,20 +149,20 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     //This would be a good place to load configurable defaults for new NPCs.
     @Override
           public void onAttach() {
-              plugin.getServer().getLogger().info(npc.getName() + " has been assigned Shearer!");
+//              plugin.getServer().getLogger().info(npc.getName() + " has been assigned Shearer!");
           }
     
     // Run code when the NPC is despawned. This is called before the entity actually despawns so npc.getBukkitEntity() is still valid.
     @Override
           public void onDespawn() {
-              Plugin.log(" Despawn run on "+npc.getFullName());
+              log(" Despawn run on "+npc.getFullName());
           }
     
     //Run code when the NPC is spawned. Note that npc.getBukkitEntity() will be null until this method is called.
     //This is called AFTER onAttach and AFTER Load when the server is started.
     @Override
           public void onSpawn() {
-              Plugin.log(" Spawn run on "+npc.getFullName());
+              log(" Spawn run on "+npc.getFullName());
           }
     
     //run code when the NPC is removed. Use this to tear down any repeating tasks.
@@ -217,7 +230,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     int idleTime;
     
     private void update(){
-        Plugin.log("Current state "+state.toString()+ " for "+stateTime());
+        log("Current state "+state.toString()+ " for "+stateTime());
         switch(state){
         case STOPPED:
             // every now and then wander around
@@ -289,7 +302,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
                 continue;
             }
             npc.getNavigator().setTarget(b.getLocation().add(0, 1, 0));
-            Plugin.log("wander target set");
+            log("wander target set");
             break;
         }
         
@@ -299,12 +312,12 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     private void findSheepToTarget(){
         List<Entity> lst = npc.getEntity().getNearbyEntities(scanDist,3,scanDist);
         sheepTarget=null;
-        Plugin.log(String.format("looking for a sheep within %d, %d entities found",scanDist,lst.size()));
+        log(String.format("looking for a sheep within %d, %d entities found",scanDist,lst.size()));
         for(Entity e:lst){
             if(e.getType() == EntityType.SHEEP){
                 Sheep sheep = (Sheep)e;
                 if(permittedColour != null && sheep.getColor()!=permittedColour){
-                    Plugin.log("Sheep found, wrong colour");
+                    log("Sheep found, wrong colour");
                     continue;
                 }
                 if(!sheep.isSheared()){
@@ -312,10 +325,10 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
                     sheepTarget = sheep;
                     gotoState(State.MOVING_TO_SHEEP);
                     getNPC().getNavigator().setTarget(sheep,false);
-                    Plugin.log("Moving in to shear");
+                    log("Moving in to shear");
                     break;
                 } else {
-                    Plugin.log("Sheep found, already shorn");
+                    log("Sheep found, already shorn");
                 }
                 
             }
@@ -365,20 +378,20 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     
     private void checkNearSheep(){
         double d = npc.getStoredLocation().distance(sheepTarget.getLocation());
-        Plugin.log("dist "+d);
+        log("dist "+d);
         if(d<2){
             // close enough!
             npc.getNavigator().cancelNavigation();
-            Plugin.log("shearing a sheep");
+            log("shearing a sheep");
             sheepTarget.setSheared(true);
             ItemStack st = new ItemStack(getWoolMat(sheepTarget.getColor()),rand.nextInt(3)+1);
             if(npc.getEntity() instanceof Player){
                 PlayerInventory i = ((Player)(npc.getEntity())).getInventory();
-                Plugin.log("player inventory: ");
+                log("player inventory: ");
                 int woolcount = 0;
                 for(ItemStack ii: i.getContents()){
                     if(ii != null) {
-                        Plugin.log("  Item:" + ii.getType() + " Amount: " + ii.getAmount());
+                        log("  Item:" + ii.getType() + " Amount: " + ii.getAmount());
                         if(Tag.WOOL.isTagged(ii.getType())){
                             woolcount += ii.getAmount();
                         }
@@ -390,7 +403,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
                 } else
                     gotoState(State.IDLE);
             } else {
-                Plugin.log("not a player, can't get wool!");
+                log("not a player, can't get wool!");
             }
         }
     }
@@ -434,10 +447,10 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
         if(containerTarget != null){
             gotoState(State.MOVING_TO_CONTAINER);
             npc.getNavigator().setTarget(containerTarget.getLocation());
-            Plugin.log("found container");
+            log("found container");
             return true;
         } else {
-            Plugin.log("can't find container");
+            log("can't find container");
             gotoState(State.CONTAINERS_FULL); // wait a while
             return false;
         }
@@ -445,7 +458,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     
     private void checkNearContainer(){
         double d = npc.getStoredLocation().distance(containerTarget.getLocation());
-        Plugin.log("dist "+d);
+        log("dist "+d);
         if(d<4) {
             npc.getNavigator().cancelNavigation();
             BlockState bs = containerTarget.getState();
@@ -453,7 +466,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
             if(bs instanceof Container){
                 con = ((Container) bs).getInventory();
             } else {
-                Plugin.log("Container isn't, can't store");
+                log("Container isn't, can't store");
                 gotoState(State.STOPPED);
                 return;
             }
@@ -471,10 +484,10 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
                 for(ItemStack i: rem){
                     inv.remove(i);
                 }
-                Plugin.log("transferred to container");
+                log("transferred to container");
                 gotoState(State.IDLE);
             } else {
-                Plugin.log("Not a player, can't put wool!");
+                log("Not a player, can't put wool!");
                 gotoState(State.STOPPED);
             }
         }
