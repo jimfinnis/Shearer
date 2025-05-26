@@ -230,7 +230,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
     int idleTime;
     
     private void update(){
-        log("Current state "+state.toString()+ " for "+stateTime());
+//        log("Current state "+state.toString()+ " for "+stateTime());
         switch(state){
         case STOPPED:
             // every now and then wander around
@@ -302,7 +302,7 @@ public class ShearerTrait extends net.citizensnpcs.api.trait.Trait {
                 continue;
             }
             npc.getNavigator().setTarget(b.getLocation().add(0, 1, 0));
-            log("wander target set");
+//            log("wander target set");
             break;
         }
         
